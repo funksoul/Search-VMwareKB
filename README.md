@@ -30,7 +30,7 @@ Search results are returned as a PowerShell Array which contains following prope
 ### Installation
 
 1. Download repo as .zip file and extract it.
-2. Change location to extracted directory and run installer (.\Install.ps1)
+2. Change location to the extracted folder and run the installer (.\Install.ps1)
 3. Check if the module loaded correctly
 
 ```powershell
