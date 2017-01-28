@@ -29,16 +29,16 @@ Search results are returned as a PowerShell Array which contains following prope
 
 ### Installation
 
-1. Download repo as .zip file and extract it to your preferred PowerShell module path.
-2. Remove extra suffix from the folder name. (-master, -devel, ..etc)
-3. Check if the PowerShell recognizes the module properly.
-4. Load the module (yay)
+1. Download repo as .zip file and extract it.
+2. Change location to extracted directory and run installer (.\Install.ps1)
+3. Check if the module loaded correctly
 
 ```powershell
-PS C:\> $env:PSModulePath -split ';'
-	C:\Users\Foo\Documents\WindowsPowerShell\Modules\Search-VMwareKB
-PS C:\> Get-Module -ListAvailable Search-VMwareKB
-PS C:\> Import-Module Search-VMwareKB
+PS C:\> Get-Module Search-VMwareKB
+
+ModuleType Version    Name                                ExportedCommands
+---------- -------    ----                                ----------------
+Script     1.0        Search-VMwareKB                     Search-VMwareKB
 ```
 
 
