@@ -1,3 +1,6 @@
+$ModuleName = 'Search-VMwareKB'
+$FileList = Get-Content FILES.lst
+
 # Select module installation folder between PowerShell module paths
 $itemsListArray = $env:PSModulePath -split ';'
 
@@ -16,19 +19,28 @@ do {
     [int]$itemIndex = Read-Host
 } until ($itemsList.ContainsKey($itemIndex)) 
 
-$Dest = Join-Path -Path $itemsList[[int]$itemIndex] -ChildPath 'Search-VMwareKB'
+$Dest = Join-Path -Path $itemsList[[int]$itemIndex] -ChildPath $ModuleName
 
+# Do not overwrite if it exist already
 if (-not (Test-Path $Dest)) {
     Write-Host "Creating destination folder `"$Dest`".."
     New-Item -ItemType Directory -Path $Dest | Out-Null
+
+    # Copy source files to destination folder
     Write-Host "Copying files.."
-    Copy-Item Search-VMwareKB.* $Dest
+    $FileList | %{
+        Copy-Item $_ $Dest
+    }
+
+    # Unblock script file (for your convenience)
     Write-Host "Running `"Unblock-File`" Cmdlet.."
-    Unblock-File (Join-Path -Path $Dest -ChildPath 'Search-VMwareKB.psm1')
-    Unblock-File (Join-Path -Path $Dest -ChildPath 'Search-VMwareKB.ps1xml')
+    Unblock-File (Join-Path -Path $Dest -ChildPath '*') -Confirm:$true
+
     Write-Host "Module installed to `"$Dest`" successfully."
-    Write-Host "Importing module `"Search-VMwareKB`".."
-    Import-Module Search-VMwareKB
+
+    # Import installed module
+    Write-Host "Importing module `"$ModuleName`".."
+    Import-Module $ModuleName
 }
 else {
     Write-Host -ForegroundColor red "Destination folder `"$Dest`" exists. Please remove it and try again."
