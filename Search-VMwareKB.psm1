@@ -46,7 +46,7 @@ Function Get-SortBy {
             else {
                 Write-Verbose "> Request timeout. Please check website message."
                 $DOMObject.Visible = $true
-                exit
+                break
             }
         }
         else {
@@ -74,7 +74,7 @@ Function Get-SortBy {
                 else {
                     Write-Verbose "> Request timeout. Please check website message."
                     $DOMObject.Visible = $true
-                    exit
+                    break
                 }
             }
             else {
@@ -147,7 +147,7 @@ Function Get-NarrowFocus {
                 else {
                     Write-Verbose "> Request timeout. Please check website message."
                     $DOMObject.Visible = $true
-                    exit
+                    break
                 }
             }
             else {
@@ -174,7 +174,7 @@ Function Get-NarrowFocus {
                     else {
                         Write-Verbose "> Request timeout. Please check website message."
                         $DOMObject.Visible = $true
-                        exit
+                        break
                     }
                 }
                 else {
@@ -269,7 +269,7 @@ Function Search-VMwareKB {
         $ie = New-Object -ComObject 'InternetExplorer.Application'
         $url = 'https://kb.vmware.com/selfservice/microsites/microsite.do'
         $count = 0
-        $maxcount = 40
+        $maxcount = $Timeout * 2
     }
 
     Process {
@@ -285,7 +285,7 @@ Function Search-VMwareKB {
         else {
             Write-Host "> Request timeout. Please check website message."
             $ie.Visible = $true
-            exit
+            break
         }
 
         # Search for a keyword
@@ -297,7 +297,7 @@ Function Search-VMwareKB {
             Write-Host "> $_"
             Write-Host "Unknown error occurred. Please check website message."
             $ie.Visible = $true
-            exit
+            break
         }
         $searchString = $searchForm | Where-Object { $_.name -eq 'searchString' }
         $btnSearchAll = $searchForm | Where-Object { $_.name -eq 'btnSearchAll' }
