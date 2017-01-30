@@ -61,7 +61,7 @@ Function Get-SortBy {
         else {
             $element = $Object.Document.getElementById('sortBy')
         }
-        if (((Wait-Document -Object $element -Timeout $Timeout) -eq $true) -and ($element -ne $null)) {
+        if (((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) -and ($element -ne $null)) {
             $defaultCriteria = $element[$element.selectedIndex].text
         }
         else {
@@ -155,10 +155,13 @@ Function Get-NarrowFocus {
         else {
             $idList = $Object.Document.getElementsByName('idList')
         }
-        $table = $idList[0].parentElement
+        $table = ($idList | Select-Object -First 1).parentElement
 
         if ($table) {
-            $narrowFocusTable = $table.getElementsByClassName('GS_bgcolor')
+            $narrowFocusTable = @()
+            $table.getElementsByClassName('GS_bgcolor') | %{
+                $narrowFocusTable += $_
+            }
             Switch ($focus) {
                 "Language" { $narrowFocusItems = $narrowFocusTable[2].getElementsByTagName('A'); break }
                 "Category" { $narrowFocusItems = $narrowFocusTable[1].getElementsByTagName('A'); break }
@@ -170,12 +173,13 @@ Function Get-NarrowFocus {
         }
     }
     Process {
-        # Build focus list
-        $itemsListArray = @()
-        $itemsList = @{}
-        $i = 0
-
         if ($narrowFocusItems) {
+
+            # Build focus list
+            $itemsListArray = @()
+            $itemsList = @{}
+            $i = 0
+
             $narrowFocusItems | %{
                 $itemsListArray += $_.innerTEXT.Trim()
             }
@@ -187,8 +191,10 @@ Function Get-NarrowFocus {
             # Select focus item
             if ($itemsList.ContainsValue($focusItem)) {
                 $narrowFocusItems | %{
-                    if ($_.innerTEXT.Trim() -eq $focusItem) {
-                        $_.click()
+                    if ($_.innerTEXT) {
+                        if ($_.innerTEXT.Trim() -eq $focusItem) {
+                            $_.click()
+                        }
                     }
                 }
                 if ((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) {
@@ -212,8 +218,10 @@ Function Get-NarrowFocus {
                 if ($itemIndex -and $item) {
                     Write-Verbose "< Selecting $focus`: `"$item`".."
                     $narrowFocusItems | %{
-                        if ($_.innerTEXT.Trim() -eq $item) {
-                            $_.click()
+                        if ($_.innerTEXT) {
+                            if ($_.innerTEXT.Trim() -eq $focusItem) {
+                                $_.click()
+                            }
                         }
                     }
                     if ((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) {
@@ -315,8 +323,8 @@ Function Search-VMwareKB {
 
     Begin {
         $ie = New-Object -ComObject 'InternetExplorer.Application'
-        $ie.Visible = $true
         $url = 'https://kb.vmware.com/selfservice/microsites/microsite.do'
+        $ie.Visible = $true
     }
 
     Process {
@@ -392,11 +400,15 @@ Function Search-VMwareKB {
             $searchRes = $ie.Document.getElementById('searchres')
         }
         $searchRes.getElementsByClassName('vmdoc') | %{
+            $doctitleClass = $_.getElementsByClassName('doctitle') | Select-Object -First 1
+            $doctitleClassATag = $doctitleClass.getElementsByTagName('A') | Select-Object -First 1
+            $synopsisTag = $_.getElementsByTagName('synopsis') | Select-Object -First 1
+
             $row = "" | Select-Object "Title", "URL", "Description", "Rating", "Published", "CreatedDate", "LastModifiedDate"
-            $row.Title = $_.getElementsByClassName('doctitle')[0].innerText.Trim()
-            $row.URL = 'https://kb.vmware.com/kb/' + ($_.getElementsByClassName('doctitle')[0].getElementsByTagName('A')[0].href -split 'externalId=')[1] -replace '&.*',''
-            $row.Description = $_.getElementsByTagName('synopsis')[0].innerText.Trim()
-            $metadata = $_.getElementsByClassName('metadata')[0]
+            $row.Title = $doctitleClass.innerText.Trim()
+            $row.URL = 'https://kb.vmware.com/kb/' + ($doctitleClassATag.href -split 'externalId=')[1] -replace '&.*',''
+            $row.Description = $synopsisTag.innerText.Trim()
+            $metadata = $_.getElementsByClassName('metadata') | Select-Object -First 1
             $Rating = 0
             if ($metadata.innerText -like "*Rating:*") {
                 $row.Rating = $metadata.getElementsByTagName('img') | %{
@@ -421,6 +433,7 @@ Function Search-VMwareKB {
 
     End {
         # Quit (hidden) IE instance at exit
+        Write-Verbose "> Exiting normally.."
         if ($ie.Visible -ne $true) {
             $ie.Quit()
         }
