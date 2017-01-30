@@ -324,7 +324,6 @@ Function Search-VMwareKB {
     Begin {
         $ie = New-Object -ComObject 'InternetExplorer.Application'
         $url = 'https://kb.vmware.com/selfservice/microsites/microsite.do'
-        $ie.Visible = $true
     }
 
     Process {
