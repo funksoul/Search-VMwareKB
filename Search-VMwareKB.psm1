@@ -267,6 +267,8 @@ Function Search-VMwareKB {
 
 .PARAMETER Keyword
     A search keyword
+.PARAMETER Interactive
+    Run Cmdlet in interactive mode
 .PARAMETER SortBy
     Sort the search results by specific criteria such as "Most Relevant",
     "Publication Date", etc.
@@ -314,6 +316,7 @@ Function Search-VMwareKB {
 
     Param (
         [Parameter(Mandatory=$true, Position=0)][String]$Keyword,
+        [Parameter(Mandatory=$false)][switch]$Interactive = $false,
         [Parameter(Mandatory=$false)]$SortBy,
         [Parameter(Mandatory=$false)]$Language,
         [Parameter(Mandatory=$false)]$Category,
@@ -322,6 +325,9 @@ Function Search-VMwareKB {
     )
 
     Begin {
+        if ($Interactive) {
+            $SortBy = $Language = $Category = $Product = '*'
+        }
         $ie = New-Object -ComObject 'InternetExplorer.Application'
         $url = 'https://kb.vmware.com/selfservice/microsites/microsite.do'
     }
