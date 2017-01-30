@@ -127,7 +127,7 @@ Function Get-SortBy {
                 }
             }
             else {
-                Write-Verbose "Empty or invalid choice. Select default criteria: $defaultCriteria"
+                Write-Host -ForegroundColor yellow "Empty or invalid choice. Select default criteria: $defaultCriteria"
             }
         }
     }
@@ -219,7 +219,7 @@ Function Get-NarrowFocus {
                     Write-Verbose "< Selecting $focus`: `"$item`".."
                     $narrowFocusItems | %{
                         if ($_.innerTEXT) {
-                            if ($_.innerTEXT.Trim() -eq $focusItem) {
+                            if ($_.innerTEXT.Trim() -eq $item) {
                                 $_.click()
                             }
                         }
@@ -234,7 +234,7 @@ Function Get-NarrowFocus {
                     }
                 }
                 else {
-                    Write-Verbose "Empty or invalid choice. Select all $focus"
+                    Write-Host -ForegroundColor yellow "Empty or invalid choice. Select all $focus"
                 }
             }
         }
