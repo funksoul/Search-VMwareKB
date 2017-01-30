@@ -76,6 +76,12 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
   PS C:\> Search-VMwareKB -Keyword 'no workaround' -SortBy * -Language * -Category * -Product *
   ```
 
+- Or you can use -Interactive parameter
+
+  ```powershell
+  PS C:\> Search-VMwareKB 'PSOD' -Interactive
+  ```
+
 - Open all KB articles at once in search results using default web browser
 
   ```powershell
