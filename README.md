@@ -21,8 +21,8 @@ Search results are returned as a PowerShell Array which contains following prope
 
 ### Requirements
 
-- Desktop edition of Windows PowerShell
-- Internet Explorer / Edge
+- Desktop edition of Windows PowerShell (Tested: PSVersion 4.0 and above)
+- Internet Explorer (Tested: Internet Explorer 11)
 
 
 
@@ -49,7 +49,9 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
 
   ```powershell
   PS C:\> Search-VMwareKB PSOD
+  ```
 
+  ```
   === Sample Output ===
   Title            : "PF Exception 14 in world 32868:helper11-0 IP 0x418008f10260" PSOD in ESXi 5.x or 6.0.x host (2114745)
   URL              : https://kb.vmware.com/kb/2114745
@@ -88,3 +90,4 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
 - There's no page navigation so the maximum number of search results will be 25.
 - When something goes wrong, a browser window pops up to help you identify the problem.
   (ex. HTTP communication error, Capcha is required, ..etc)
+- If you encounter **_Cannot find an overload for "getElementById" and the argument count: "1"_** error, please fix mshtml.dll issue. (http://stackoverflow.com/a/32183359)

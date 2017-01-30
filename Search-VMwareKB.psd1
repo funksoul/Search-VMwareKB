@@ -15,7 +15,7 @@ RootModule = 'Search-VMwareKB.psm1'
 ModuleVersion = '1.0'
 
 # 지원되는 PSEditions
-CompatiblePSEditions = @('Desktop')
+# CompatiblePSEditions = @('Desktop')
 
 # 이 모듈을 고유하게 식별하는 데 사용되는 ID
 GUID = 'affac678-a4b0-4c52-92d4-3308b716f91a'

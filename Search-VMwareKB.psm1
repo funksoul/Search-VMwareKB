@@ -1,3 +1,44 @@
+Function Wait-Document {
+<#
+.SYNOPSIS
+    A helper function which waits for document loading.
+.DESCRIPTION
+    It's not supposed to be run as stand-alone
+#>
+    Param (
+        [Parameter(Mandatory=$true)]$Object,
+        [Parameter(Mandatory=$true)]$Timeout
+    )
+
+    Begin {
+        $maxcount = $Timeout * 2
+        $count = 0
+
+        # Determine browser characteristics
+        if (Get-Member -InputObject $Object.Document -MemberType Property -Name "readyState" -ErrorAction SilentlyContinue) {
+            $readyStateExpression = '($Object.Document.readyState -eq "complete")'
+        }
+        else {
+            $readyStateExpression = '(($Object.ReadyState -eq 4) -and ($Object.Busy -eq $false))'
+        }
+    }
+
+    Process {
+        # Wait for document loading
+        do {
+            Start-Sleep -Milliseconds 500
+            $count++
+        } until ((Invoke-Expression $readyStateExpression) -or ($count -ge $maxcount))
+
+        if ((Invoke-Expression $readyStateExpression)) {
+            return $true
+        }
+        else {
+            return $false
+        }
+    }
+}
+
 Function Get-SortBy {
 <#
 .SYNOPSIS
@@ -6,17 +47,30 @@ Function Get-SortBy {
     It's not supposed to be run as stand-alone
 #>
     Param (
-        [Parameter(Mandatory=$true)]$DOMObject,
+        [Parameter(Mandatory=$true)]$Object,
         [Parameter(Mandatory=$true)]$Criteria,
         [Parameter(Mandatory=$true)]$Timeout
     )
     Begin {
         Write-Verbose "< Sorting results by: $Criteria"
-        $maxcount = $Timeout * 2
-        $count = 0
-        $element = $DOMObject.Document.IHTMLDocument3_getElementById('sortBy')
-        $defaultCriteria = $element[$element.selectedIndex].text
+
+        # Read default sort criteria
+        if (Get-Member -InputObject $Object.Document -MemberType Method -Name IHTMLDocument3_getElementById) {
+            $element = $Object.Document.IHTMLDocument3_getElementById('sortBy')
+        }
+        else {
+            $element = $Object.Document.getElementById('sortBy')
+        }
+        if (((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) -and ($element -ne $null)) {
+            $defaultCriteria = $element[$element.selectedIndex].text
+        }
+        else {
+            Write-Verbose "> Request timeout. Please check website message."
+            $Object.Visible = $true
+            break
+        }
     }
+
     Process {
         $itemsListArray = @()
         $itemsList = @{}
@@ -29,6 +83,7 @@ Function Get-SortBy {
             $itemsList[$key] = $_
         }
 
+        # Select sort criteria
         if ($itemsList.ContainsValue($Criteria)) {
             $element | %{
                 if ($_.text.Trim() -eq $Criteria) {
@@ -36,21 +91,19 @@ Function Get-SortBy {
                     $element.FireEvent('onchange') | Out-Null
                 }
             }
-            do {
-                Start-Sleep -Milliseconds 500
-                $count++
-            } until (($DOMObject.Document.readyState -eq 'complete') -or ($count -ge $maxcount))
-            if ($DOMObject.Document.readyState -eq 'complete') {
+            if ((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) {
                 Write-Verbose "> Sorting results finished successfully"
             }
             else {
                 Write-Verbose "> Request timeout. Please check website message."
-                $DOMObject.Visible = $true
+                $Object.Visible = $true
                 break
             }
         }
+
+        # Change to interactive mode if needed
         else {
-            Write-Verbose "> Criteria `"$Criteria`" could not found"
+            Write-Verbose "> Criteria `"$Criteria`" could not be found"
             $itemsList.Keys | Sort-Object | %{ Write-Host $_":" $itemsList[$_] }
             Write-Host -NoNewline -ForegroundColor green "Please select sort criteria`: "
             $itemIndex = Read-Host
@@ -64,16 +117,12 @@ Function Get-SortBy {
                         $element.FireEvent('onchange') | Out-Null
                     }
                 }
-                do {
-                    Start-Sleep -Milliseconds 500
-                    $count++
-                } until (($DOMObject.Document.readyState -eq 'complete') -or ($count -ge $maxcount))
-                if ($DOMObject.Document.readyState -eq 'complete') {
+                if ((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) {
                     Write-Verbose "> Sorting results finished successfully"
                 }
                 else {
                     Write-Verbose "> Request timeout. Please check website message."
-                    $DOMObject.Visible = $true
+                    $Object.Visible = $true
                     break
                 }
             }
@@ -92,20 +141,27 @@ Function Get-NarrowFocus {
     It's not supposed to be run as stand-alone
 #>
     Param (
-        [Parameter(Mandatory=$true)]$DOMObject,
+        [Parameter(Mandatory=$true)]$Object,
         [Parameter(Mandatory=$true)]$focus,
         [Parameter(Mandatory=$true)]$focusItem,
         [Parameter(Mandatory=$true)]$Timeout
     )
     Begin {
         Write-Verbose "< Selecting $focus`: `"$focusItem`".."
-        $maxcount = $Timeout * 2
-        $count = 0
-        $idList = $DOMObject.Document.IHTMLDocument3_getElementsByName('idList')
-        $table = $idList[0].parentElement
+
+        if (Get-Member -InputObject $Object.Document -MemberType Method -Name IHTMLDocument3_getElementsByName) {
+            $idList = $Object.Document.IHTMLDocument3_getElementsByName('idList')
+        }
+        else {
+            $idList = $Object.Document.getElementsByName('idList')
+        }
+        $table = ($idList | Select-Object -First 1).parentElement
 
         if ($table) {
-            $narrowFocusTable = $table.getElementsByClassName('GS_bgcolor')
+            $narrowFocusTable = @()
+            $table.getElementsByClassName('GS_bgcolor') | %{
+                $narrowFocusTable += $_
+            }
             Switch ($focus) {
                 "Language" { $narrowFocusItems = $narrowFocusTable[2].getElementsByTagName('A'); break }
                 "Category" { $narrowFocusItems = $narrowFocusTable[1].getElementsByTagName('A'); break }
@@ -113,16 +169,17 @@ Function Get-NarrowFocus {
             }
         }
         else {
-            Write-Verbose "> Could not narrow focus by $focus."
+            Write-Verbose "> Cannot narrow focus by $focus."
         }
     }
     Process {
-        # Build focus list
-        $itemsListArray = @()
-        $itemsList = @{}
-        $i = 0
-
         if ($narrowFocusItems) {
+
+            # Build focus list
+            $itemsListArray = @()
+            $itemsList = @{}
+            $i = 0
+
             $narrowFocusItems | %{
                 $itemsListArray += $_.innerTEXT.Trim()
             }
@@ -131,25 +188,26 @@ Function Get-NarrowFocus {
                 $itemsList[$key] = $_
             }
 
+            # Select focus item
             if ($itemsList.ContainsValue($focusItem)) {
                 $narrowFocusItems | %{
-                    if ($_.innerTEXT.Trim() -eq $focusItem) {
-                        $_.click()
+                    if ($_.innerTEXT) {
+                        if ($_.innerTEXT.Trim() -eq $focusItem) {
+                            $_.click()
+                        }
                     }
                 }
-                do {
-                    Start-Sleep -Milliseconds 500
-                    $count++
-                } until (($DOMObject.Document.readyState -eq 'complete') -or ($count -ge $maxcount))
-                if ($DOMObject.Document.readyState -eq 'complete') {
+                if ((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) {
                     Write-Verbose "> Selecting $focus finished successfully"
                 }
                 else {
                     Write-Verbose "> Request timeout. Please check website message."
-                    $DOMObject.Visible = $true
+                    $Object.Visible = $true
                     break
                 }
             }
+
+            # Change to interactive mode if needed
             else {
                 Write-Verbose "> $focus `"$focusItem`" could not found"
                 $itemsList.Keys | Sort-Object | %{ Write-Host $_":" $itemsList[$_] }
@@ -160,20 +218,18 @@ Function Get-NarrowFocus {
                 if ($itemIndex -and $item) {
                     Write-Verbose "< Selecting $focus`: `"$item`".."
                     $narrowFocusItems | %{
-                        if ($_.innerTEXT.Trim() -eq $item) {
-                            $_.click()
+                        if ($_.innerTEXT) {
+                            if ($_.innerTEXT.Trim() -eq $focusItem) {
+                                $_.click()
+                            }
                         }
                     }
-                    do {
-                        Start-Sleep -Milliseconds 500
-                        $count++
-                    } until (($DOMObject.Document.readyState -eq 'complete') -or ($count -ge $maxcount))
-                    if ($DOMObject.Document.readyState -eq 'complete') {
+                    if ((Wait-Document -Object $Object -Timeout $Timeout) -eq $true) {
                         Write-Verbose "> Selecting $focus finished successfully"
                     }
                     else {
                         Write-Verbose "> Request timeout. Please check website message."
-                        $DOMObject.Visible = $true
+                        $Object.Visible = $true
                         break
                     }
                 }
@@ -268,22 +324,17 @@ Function Search-VMwareKB {
     Begin {
         $ie = New-Object -ComObject 'InternetExplorer.Application'
         $url = 'https://kb.vmware.com/selfservice/microsites/microsite.do'
-        $count = 0
-        $maxcount = $Timeout * 2
     }
 
     Process {
         Write-Verbose "< Opening URL: $url"
         $ie.Navigate($url)
-        do {
-            Start-Sleep -Milliseconds 500
-            $count++
-        } until (($ie.Document.readyState -eq 'complete') -or ($count -ge $maxcount))
-        if ($ie.Document.readyState -eq 'complete') {
+
+        if ((Wait-Document -Object $ie -Timeout $Timeout) -eq $true) {
             Write-Verbose "> URL opened successfully"
         }
         else {
-            Write-Host "> Request timeout. Please check website message."
+            Write-Verbose "> Request timeout. Please check website message."
             $ie.Visible = $true
             break
         }
@@ -291,7 +342,12 @@ Function Search-VMwareKB {
         # Search for a keyword
         Write-Verbose "< Searching for the keyword: `"$Keyword`""
         Try {
-            $searchForm = $ie.Document.IHTMLDocument3_getElementById('id_searchForm')
+            if (Get-Member -InputObject $ie.Document -MemberType Method -Name IHTMLDocument3_getElementById) {
+                $searchForm = $ie.Document.IHTMLDocument3_getElementById('id_searchForm')
+            }
+            else {
+                $searchForm = $ie.Document.getElementById('id_searchForm')
+            }
         }
         Catch {
             Write-Host "> $_"
@@ -299,44 +355,59 @@ Function Search-VMwareKB {
             $ie.Visible = $true
             break
         }
+
         $searchString = $searchForm | Where-Object { $_.name -eq 'searchString' }
         $btnSearchAll = $searchForm | Where-Object { $_.name -eq 'btnSearchAll' }
         $searchString.value = $Keyword
         $btnSearchAll.click()
-        do {
-            Start-Sleep -Milliseconds 1000
-        } until ($ie.Document.readyState -eq 'complete')
-        Write-Verbose "> Keyworld search finished successfully"
+
+        if ((Wait-Document -Object $ie -Timeout $Timeout) -eq $true) {
+            Write-Verbose "> Keyworld search finished successfully"
+        }
+        else {
+            Write-Verbose "> Request timeout. Please check website message."
+            $ie.Visible = $true
+            break
+        }
 
         # Sort results
         if ($SortBy) {
-            Get-SortBy -DOMObject $ie -Criteria $SortBy -Timeout $Timeout
+            Get-SortBy -Object $ie -Criteria $SortBy -Timeout $Timeout
         }
 
         # Narrow Focus (Language)
         if ($Language) {
-            Get-NarrowFocus -DOMObject $ie -focus 'Language' -focusItem $Language -Timeout $Timeout
+            Get-NarrowFocus -Object $ie -focus 'Language' -focusItem $Language -Timeout $Timeout
         }
 
         # Narrow Focus (Category)
         if ($Category) {
-            Get-NarrowFocus -DOMObject $ie -focus 'Category' -focusItem $Category -Timeout $Timeout
+            Get-NarrowFocus -Object $ie -focus 'Category' -focusItem $Category -Timeout $Timeout
         }
 
         # Narrow Focus (Products)
         if ($Product) {
-            Get-NarrowFocus -DOMObject $ie -focus 'Product' -focusItem $Product -Timeout $Timeout
+            Get-NarrowFocus -Object $ie -focus 'Product' -focusItem $Product -Timeout $Timeout
         }
 
         # Create array of sort results
         $result = @()
-        $searchRes = $ie.Document.IHTMLDocument3_getElementById('searchres')
+        if (Get-Member -InputObject $ie.Document -MemberType Method -Name IHTMLDocument3_getElementById) {
+            $searchRes = $ie.Document.IHTMLDocument3_getElementById('searchres')
+        }
+        else {
+            $searchRes = $ie.Document.getElementById('searchres')
+        }
         $searchRes.getElementsByClassName('vmdoc') | %{
+            $doctitleClass = $_.getElementsByClassName('doctitle') | Select-Object -First 1
+            $doctitleClassATag = $doctitleClass.getElementsByTagName('A') | Select-Object -First 1
+            $synopsisTag = $_.getElementsByTagName('synopsis') | Select-Object -First 1
+
             $row = "" | Select-Object "Title", "URL", "Description", "Rating", "Published", "CreatedDate", "LastModifiedDate"
-            $row.Title = $_.getElementsByClassName('doctitle')[0].innerText.Trim()
-            $row.URL = 'https://kb.vmware.com/kb/' + ($_.getElementsByClassName('doctitle')[0].getElementsByTagName('A')[0].href -split 'externalId=')[1] -replace '&.*',''
-            $row.Description = $_.getElementsByTagName('synopsis')[0].innerText.Trim()
-            $metadata = $_.getElementsByClassName('metadata')[0]
+            $row.Title = $doctitleClass.innerText.Trim()
+            $row.URL = 'https://kb.vmware.com/kb/' + ($doctitleClassATag.href -split 'externalId=')[1] -replace '&.*',''
+            $row.Description = $synopsisTag.innerText.Trim()
+            $metadata = $_.getElementsByClassName('metadata') | Select-Object -First 1
             $Rating = 0
             if ($metadata.innerText -like "*Rating:*") {
                 $row.Rating = $metadata.getElementsByTagName('img') | %{
@@ -361,6 +432,7 @@ Function Search-VMwareKB {
 
     End {
         # Quit (hidden) IE instance at exit
+        Write-Verbose "> Exiting normally.."
         if ($ie.Visible -ne $true) {
             $ie.Quit()
         }
