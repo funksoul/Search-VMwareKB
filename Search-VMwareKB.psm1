@@ -368,7 +368,7 @@ Function Search-VMwareKB {
         $btnSearchAll.click()
 
         if ((Wait-Document -Object $ie -Timeout $Timeout) -eq $true) {
-            Write-Verbose "> Keyworld search finished successfully"
+            Write-Verbose "> Keyword search finished successfully"
         }
         else {
             Write-Verbose "> Request timeout. Please check website message."
