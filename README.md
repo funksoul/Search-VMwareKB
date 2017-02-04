@@ -50,7 +50,6 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
   ```powershell
   PS C:\> Search-VMwareKB PSOD
   ```
-
   ```
   === Sample Output ===
   Title            : "PF Exception 14 in world 32868:helper11-0 IP 0x418008f10260" PSOD in ESXi 5.x or 6.0.x host (2114745)
@@ -94,6 +93,55 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
 ### Etc
 
 - There's no page navigation so the maximum number of search results will be 25.
+- When something goes wrong, a browser window pops up to help you identify the problem.
+  (ex. HTTP communication error, Capcha is required, ..etc)
+- If you encounter **_Cannot find an overload for "getElementById" and the argument count: "1"_** error, please fix mshtml.dll issue. (http://stackoverflow.com/a/32183359)
+
+
+
+
+
+
+
+
+# Get-KBArticle
+
+A PowerShell Cmdlet for fetching a VMware KB article on the command line.
+It uses Internet Explorer COM Object to interact with the VMware KB site and to extract DOM elements from the HTML Document.
+
+A fetched article is processed and converted to a PowerShell custom object which contains following properties:
+
+- Title
+- Symptoms, Purpose, Cause, Details, Resolution, Solution, Impact/Risks, Update History, Additional Information, Tags
+- See Also, Attachments
+- Rating Value, Rating Count, RSS URL
+- Updated, Categories, Languages, Product(s), Product Version(s), Language Editions
+- Links, RunAt
+
+You can save the object to a file to track changes of an article in detail.
+
+
+
+### Requirements
+
+- Desktop edition of Windows PowerShell (Tested: PSVersion 4.0 and above)
+- Internet Explorer (Tested: Internet Explorer 11)
+
+
+
+
+### Usage
+
+- Fetch VMware KB article 2144934
+
+  ```powershell
+  PS C:\> Get-KBArticle 2144934
+  ```
+
+
+
+
+### Etc
 - When something goes wrong, a browser window pops up to help you identify the problem.
   (ex. HTTP communication error, Capcha is required, ..etc)
 - If you encounter **_Cannot find an overload for "getElementById" and the argument count: "1"_** error, please fix mshtml.dll issue. (http://stackoverflow.com/a/32183359)

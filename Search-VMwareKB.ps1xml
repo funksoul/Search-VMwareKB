@@ -3,9 +3,9 @@
 <Configuration>  
     <ViewDefinitions>
         <View>
-            <Name>PSCustomObject</Name>
+            <Name>KBArticleSearchResult</Name>
             <ViewSelectedBy>
-                <TypeName>System.Management.Automation.PSCustomObject</TypeName>
+                <TypeName>InsData.KBArticleSearchResult</TypeName>
             </ViewSelectedBy>
             <TableControl>
                 <TableHeaders>

@@ -12,7 +12,7 @@
 RootModule = 'Search-VMwareKB.psm1'
 
 # 이 모듈의 버전 번호입니다.
-ModuleVersion = '1.0'
+ModuleVersion = '1.1'
 
 # 지원되는 PSEditions
 # CompatiblePSEditions = @('Desktop')
@@ -69,7 +69,7 @@ FormatsToProcess = @('Search-VMwareKB.ps1xml')
 # NestedModules = @()
 
 # 이 모듈에서 내보낼 함수입니다. 최상의 성능을 얻으려면 와일드카드를 사용하지 말고, 항목을 삭제하지도 마세요. 내보낼 함수가 없으면 빈 배열을 사용하세요.
-FunctionsToExport = @('Search-VMwareKB')
+FunctionsToExport = @('Search-VMwareKB', 'Get-KBArticle')
 
 # 이 모듈에서 내보낼 cmdlet입니다. 최상의 성능을 얻으려면 와일드카드를 사용하지 말고, 항목을 삭제하지도 마세요. 내보낼 cmdlet이 없으면 빈 배열을 사용하세요.
 CmdletsToExport = @()
