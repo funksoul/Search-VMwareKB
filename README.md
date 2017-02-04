@@ -1,11 +1,11 @@
 # Search-VMwareKB
 
-A PowerShell Module for searching VMware KB articles on the command line.
+A PowerShell Module for searching VMware KB articles on the command line.  
 It uses Internet Explorer COM Object to interact with the VMware KB site.
 
 
-You can search for a keyword, sort the results and narrow focus to specific language, category, product.
-Just as VMware KB site, narrow focus conditions are dynamic.
+You can search for a keyword, sort the results and narrow focus to specific language, category, product.  
+Just as VMware KB site, narrow focus conditions are dynamic.  
 (For example, if there's no article written in a language, you cannot narrow focus to it)
 
 Search results are returned as a PowerShell Array which contains following properties:
@@ -93,7 +93,7 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
 ### Etc
 
 - There's no page navigation so the maximum number of search results will be 25.
-- When something goes wrong, a browser window pops up to help you identify the problem.
+- When something goes wrong, a browser window pops up to help you identify the problem.  
   (ex. HTTP communication error, Capcha is required, ..etc)
 - If you encounter **_Cannot find an overload for "getElementById" and the argument count: "1"_** error, please fix mshtml.dll issue. (http://stackoverflow.com/a/32183359)
 
@@ -106,7 +106,7 @@ Script     1.0        Search-VMwareKB                     Search-VMwareKB
 
 # Get-KBArticle
 
-A PowerShell Cmdlet for fetching a VMware KB article on the command line.
+A PowerShell Cmdlet for fetching a VMware KB article on the command line.  
 It uses Internet Explorer COM Object to interact with the VMware KB site and to extract DOM elements from the HTML Document.
 
 A fetched article is processed and converted to a PowerShell custom object which contains following properties:
@@ -142,6 +142,6 @@ You can save the object to a file to track changes of an article in detail.
 
 
 ### Etc
-- When something goes wrong, a browser window pops up to help you identify the problem.
+- When something goes wrong, a browser window pops up to help you identify the problem.  
   (ex. HTTP communication error, Capcha is required, ..etc)
 - If you encounter **_Cannot find an overload for "getElementById" and the argument count: "1"_** error, please fix mshtml.dll issue. (http://stackoverflow.com/a/32183359)
