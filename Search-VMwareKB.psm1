@@ -306,7 +306,7 @@ Function Search-VMwareKB {
 .NOTES
     Author                      : Han Ho-Sung
     Author email                : funksoul@insdata.co.kr
-    Version                     : 1.0
+    Version                     : 1.1
     Dependencies                : 
     ===Tested Against Environment====
     ESXi Version                : 
@@ -328,8 +328,29 @@ Function Search-VMwareKB {
         if ($Interactive) {
             $SortBy = $Language = $Category = $Product = '*'
         }
+
         $ie = New-Object -ComObject 'InternetExplorer.Application'
         $url = 'https://kb.vmware.com/selfservice/microsites/microsite.do'
+
+        # Add KB Article Type
+        Try {
+            Add-Type @"
+namespace InsData {
+    public struct KBArticleSearchResult {
+        public string Title;
+        public string URL;
+        public string Description;
+        public string Rating;
+        public string Published;
+        public string CreatedDate;
+        public string LastModifiedDate;
+    }
+}
+"@
+        }
+        Catch {
+            Write-Error $_
+        }
     }
 
     Process {
@@ -409,7 +430,8 @@ Function Search-VMwareKB {
             $doctitleClassATag = $doctitleClass.getElementsByTagName('A') | Select-Object -First 1
             $synopsisTag = $_.getElementsByTagName('synopsis') | Select-Object -First 1
 
-            $row = "" | Select-Object "Title", "URL", "Description", "Rating", "Published", "CreatedDate", "LastModifiedDate"
+            $row = New-Object -TypeName InsData.KBArticleSearchResult
+
             $row.Title = $doctitleClass.innerText.Trim()
             $row.URL = 'https://kb.vmware.com/kb/' + ($doctitleClassATag.href -split 'externalId=')[1] -replace '&.*',''
             $row.Description = $synopsisTag.innerText.Trim()
@@ -443,5 +465,318 @@ Function Search-VMwareKB {
             $ie.Quit()
         }
         return $result
+    }
+}
+
+Function Get-LinkItems {
+    Param (
+        [Parameter(Mandatory=$true)]$Element
+    )
+
+    Begin {
+        $linkItems = @()
+    }
+
+    Process {
+        $Element.getElementsByTagName('A') | %{
+            $linkItem = "" | Select-Object "Title", "URL"
+            $linkItem.Title = $_.innerText
+            if ($_.href -like "javascript:openConsole*") {
+                $linkItem.URL = "https://kb.vmware.com/selfservice/viewAttachment.do?attachID=" + ($_.href -split "`'")[3] + "&documentID=" + ($_.href -split "`'")[1]
+            }
+            else {
+                $linkItem.URL = $_.href
+            }
+            $linkItems += $linkItem
+        }
+    }
+
+    End {
+        return $linkItems
+    }
+}
+
+Function Get-KBArticle {
+<#
+.SYNOPSIS
+    A PowerShell Cmdlet for fetching a VMware KB article on the command line.
+
+.DESCRIPTION
+    A PowerShell Cmdlet for fetching a VMware KB article on the command line.
+    It uses Internet Explorer COM Object to interact with the VMware KB site
+    and to extract DOM elements from the HTML Document.
+
+    A fetched article is processed and converted to a PowerShell custom object
+    which contains following properties:
+        . Title
+        . Symptoms, Purpose, Cause, Details, Resolution, Solution, Impact/Risks,
+          Update History, Additional Information, Tags
+        . See Also, Attachments
+        . Rating Value, Rating Count, RSS URL
+        . Updated, Categories, Languages, Product(s), Product Version(s), Language Editions
+        . Links, RunAt
+
+    You can save the object to a file to track changes of an article in detail.
+
+.PARAMETER ArticleNumber
+    A VMware KB article number
+.PARAMETER Timeout
+    Set timeout value of fetching HTML document, DOM element, etc.
+
+.EXAMPLE
+    Get-KBArticle 2144934
+    Fetch VMware KB article 2144934
+
+.NOTES
+    Author                      : Han Ho-Sung
+    Author email                : funksoul@insdata.co.kr
+    Version                     : 1.0
+    Dependencies                : 
+    ===Tested Against Environment====
+    ESXi Version                : 
+    PowerCLI Version            : 
+    PowerShell Version          : 5.1.14393.693
+#>
+    Param (
+        [Parameter(Mandatory=$true, Position=0)]$ArticleNumber,
+        [Parameter(Mandatory=$false)]$Timeout = 60
+    )
+
+    Begin {
+        $ie = New-Object -ComObject 'InternetExplorer.Application'
+        $url = "https://kb.vmware.com/kb/$ArticleNumber"
+
+        # Add KB Article Type
+        Try {
+            Add-Type @"
+namespace InsData {
+    public struct KBArticle {
+        public System.DateTime RunAt;
+    }
+}
+"@
+        }
+        Catch {
+            Write-Error $_
+        }
+    }
+
+    Process {
+        Write-Verbose "< Opening URL: $url"
+        $ie.Navigate($url)
+
+        if ((Wait-Document -Object $ie -Timeout $Timeout) -eq $true) {
+            Write-Verbose "> URL opened successfully"
+        }
+        else {
+            Write-Verbose "> Request timeout. Please check website message."
+            $ie.Visible = $true
+            break
+        }
+
+        # Get document elements
+        Write-Verbose "< Getting document elements.."
+        Try {
+            if (Get-Member -InputObject $ie.Document -MemberType Method -Name IHTMLDocument3_getElementsByTagName) {
+                $divs = $ie.Document.IHTMLDocument3_getElementsByTagName('DIV')
+                $h4s = $ie.Document.IHTMLDocument3_getElementsByTagName('H4')
+                $spans = $ie.Document.IHTMLDocument3_getElementsByTagName('SPAN')
+                $metas = $ie.Document.IHTMLDocument3_getElementsByTagName('META')
+            }
+            else {
+                $divs = $ie.Document.getElementsByTagName('DIV')
+            }
+            Write-Verbose "< Getting document elements finished successfully"
+        }
+        Catch {
+            Write-Host "> $_"
+            Write-Host "Unknown error occurred. Please check website message."
+            $ie.Visible = $true
+            break
+        }
+
+        $row = New-Object -TypeName InsData.KBArticle
+        $Links = @{}
+
+        # RunAt
+        $row.RunAt = Get-Date
+
+        # Title
+        $title = $spans | Where-Object { $_.getAttribute('itemprop') -eq 'name' } | Select-Object -First 1 | %{ $_.parentNode.innerText.Trim() }
+        $row | Add-Member -MemberType NoteProperty -Name "Title" -Value $title
+
+        # Symptoms, Purpose, Cause, Details, Resolution, Solution, Impact/Risks, Update History, Additional Information, Tags
+        $divs | ForEach-Object {
+            $className = $_.className
+            $div = $_
+            $linkItems = $null
+
+            Switch ($className) {
+                "doccontent cc_Symptoms" {
+                    $symptoms = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Symptoms" -Value $symptoms
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Symptoms"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Purpose" {
+                    $purpose = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Purpose" -Value $purpose
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Purpose"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Cause" {
+                    $cause = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Cause" -Value $cause
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Cause"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Details" {
+                    $details = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Details" -Value $details
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Details"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Resolution" {
+                    $resolution = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Resolution" -Value $resolution
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Resolution"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Solution" {
+                    $solution = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Solution" -Value $solution
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Solution"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Impact/Risks" {
+                    $impact_risks = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Impact/Risks" -Value $impact_risks
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Impact/Risks"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Update_History" {
+                    $update_history = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Update History" -Value $update_history
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Update History"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Additional_Information" {
+                    $additional_information = $div.innerText.Trim() -replace "`r`n`r`n","`r`n"
+                    $row | Add-Member -MemberType NoteProperty -Name "Additional Information" -Value $additional_information
+                    if ($linkItems = Get-LinkItems -Element $div) {
+                        $Links["Additional Information"] = $linkItems
+                    }
+                    break
+                }
+                "doccontent cc_Tags" {
+                    $tags = $div.innerText.Trim()
+                    $row | Add-Member -MemberType NoteProperty -Name "Tags" -Value $tags
+                    break
+                }
+            }
+        }
+
+        # See Also
+        $h4 = $h4s | Where-Object { $_.innerText.Trim() -eq 'See Also' }
+        if ($h4) {
+            $see_also = $h4.nextSibling.innerText.Trim() -replace "`r`n`r`n","`r`n"
+            $row | Add-Member -MemberType NoteProperty -Name "See Also" -Value $see_also
+            if ($linkItems = Get-LinkItems -Element $h4.nextSibling) {
+                $Links["See Also"] = $linkItems
+            }
+        }
+
+        # Attachments
+        $h4 = $h4s | Where-Object { $_.innerText.Trim() -eq 'Attachments' }
+        if ($h4) {
+            $attachments = $h4.nextSibling.innerText.Trim() -replace "`r`n`r`n","`r`n"
+            $row | Add-Member -MemberType NoteProperty -Name "Attachments" -Value $attachments
+            if ($linkItems = Get-LinkItems -Element $h4.nextSibling) {
+                $Links["Attachments"] = $linkItems
+            }
+        }
+
+        # Rating Value
+        $row | Add-Member -MemberType NoteProperty -Name "Rating Value" -Value $null
+        $row."Rating Value" = $metas | Where-Object { $_.getAttribute('itemprop') -eq 'ratingValue' } | Select-Object -First 1 | %{ $_.content }
+
+        # Rating Count
+        $row | Add-Member -MemberType NoteProperty -Name "Rating Count" -Value $null
+        $row."Rating Count" = $spans | Where-Object { $_.getAttribute('itemprop') -eq 'ratingCount' } | Select-Object -First 1 | %{ $_.innerText.Trim() }
+
+        # RSS URL
+        $row | Add-Member -MemberType NoteProperty -Name "RSS URL" -Value $null
+        $row."RSS URL" = ($ie.Document.IHTMLDocument3_getElementById('rssfeed-link')).href
+
+        # Updated, Categories, Languages, Product(s), Product Version(s), Language Editions
+        $spans | ForEach-Object {
+            $id = $_.id
+            $span = $_
+
+            if ($span.innerText) {
+                Switch ($id) {
+                    "kbarticledate" {
+                        $updated = $span.innerText.Trim()
+                        $row | Add-Member -MemberType NoteProperty -Name "Updated" -Value $updated
+                        break
+                    }
+                    "kbcategory" {
+                        $categories = $span.innerText.Trim()
+                        $row | Add-Member -MemberType NoteProperty -Name "Categories" -Value $categories
+                        break
+                    }
+                    "kblanguages" {
+                        $languages = $span.innerText.Trim()
+                        $row | Add-Member -MemberType NoteProperty -Name "Languages" -Value $languages
+                        break
+                    }
+                    "kbarticleproducts" {
+                        $products = $span.innerText.Trim()
+                        $row | Add-Member -MemberType NoteProperty -Name "Product(s)" -Value $products
+                        break
+                    }
+                    "productversions" {
+                        $product_versions = $span.innerText.Trim()
+                        $row | Add-Member -MemberType NoteProperty -Name "Product Version(s)" -Value $product_versions
+                        break
+                    }
+                    "langedition" {
+                        $language_editions = $span.innerText.Trim()
+                        $row | Add-Member -MemberType NoteProperty -Name "Language Editions" -Value $language_editions
+                        break
+                    }
+                }
+            }
+        }
+
+        # Links
+        $row | Add-Member -MemberType NoteProperty -Name "Links" -Value $null
+        $row.Links = $Links
+
+        $row
+    }
+
+    End {
+        # Quit (hidden) IE instance at exit
+        Write-Verbose "> Exiting normally.."
+        if ($ie.Visible -ne $true) {
+            $ie.Quit()
+        }
     }
 }
