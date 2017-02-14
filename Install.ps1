@@ -6,12 +6,12 @@ $itemsListArray = $env:PSModulePath -split ';'
 
 $itemsList = @{}
 $i = 0
-$itemsListArray | %{
+$itemsListArray | ForEach-Object {
     $key = $i++
     $itemsList[$key] =  $_
 }
 
-$itemsList.Keys | Sort-Object | %{ Write-Host $_":" $itemsList[$_] }
+$itemsList.Keys | Sort-Object | ForEach-Object { Write-Host $_":" $itemsList[$_] }
 
 $itemIndex = $itemsListArray.Count
 do {
@@ -28,7 +28,7 @@ if (-not (Test-Path $Dest)) {
 
     # Copy source files to destination folder
     Write-Host "Copying files.."
-    $FileList | %{
+    $FileList | ForEach-Object {
         Copy-Item $_ $Dest
     }
 

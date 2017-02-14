@@ -75,17 +75,17 @@ Function Get-SortBy {
         $itemsListArray = @()
         $itemsList = @{}
         $i = 0
-        $element | %{
+        $element | ForEach-Object {
             $itemsListArray += $_.text.Trim()
         }
-        $itemsListArray | Sort-Object | %{
+        $itemsListArray | Sort-Object | ForEach-Object {
             $key = $i++
             $itemsList[$key] = $_
         }
 
         # Select sort criteria
         if ($itemsList.ContainsValue($Criteria)) {
-            $element | %{
+            $element | ForEach-Object {
                 if ($_.text.Trim() -eq $Criteria) {
                     $element.value = $_.value
                     $element.FireEvent('onchange') | Out-Null
@@ -104,14 +104,14 @@ Function Get-SortBy {
         # Change to interactive mode if needed
         else {
             Write-Verbose "> Criteria `"$Criteria`" could not be found"
-            $itemsList.Keys | Sort-Object | %{ Write-Host $_":" $itemsList[$_] }
+            $itemsList.Keys | Sort-Object | ForEach-Object { Write-Host $_":" $itemsList[$_] }
             Write-Host -NoNewline -ForegroundColor green "Please select sort criteria`: "
             $itemIndex = Read-Host
 
             if ($itemIndex) {
                 $item = $itemsList[[int]$itemIndex]
                 Write-Verbose "< Sorting results by: `"$item`".."
-                $element | %{
+                $element | ForEach-Object {
                     if ($_.text.Trim() -eq $item) {
                         $element.value = $_.value
                         $element.FireEvent('onchange') | Out-Null
@@ -159,7 +159,7 @@ Function Get-NarrowFocus {
 
         if ($table) {
             $narrowFocusTable = @()
-            $table.getElementsByClassName('GS_bgcolor') | %{
+            $table.getElementsByClassName('GS_bgcolor') | ForEach-Object {
                 $narrowFocusTable += $_
             }
             Switch ($focus) {
@@ -180,17 +180,17 @@ Function Get-NarrowFocus {
             $itemsList = @{}
             $i = 0
 
-            $narrowFocusItems | %{
+            $narrowFocusItems | ForEach-Object {
                 $itemsListArray += $_.innerTEXT.Trim()
             }
-            $itemsListArray | Sort-Object | %{
+            $itemsListArray | Sort-Object | ForEach-Object {
                 $key = $i++
                 $itemsList[$key] = $_
             }
 
             # Select focus item
             if ($itemsList.ContainsValue($focusItem)) {
-                $narrowFocusItems | %{
+                $narrowFocusItems | ForEach-Object {
                     if ($_.innerTEXT) {
                         if ($_.innerTEXT.Trim() -eq $focusItem) {
                             $_.click()
@@ -210,14 +210,14 @@ Function Get-NarrowFocus {
             # Change to interactive mode if needed
             else {
                 Write-Verbose "> $focus `"$focusItem`" could not found"
-                $itemsList.Keys | Sort-Object | %{ Write-Host $_":" $itemsList[$_] }
+                $itemsList.Keys | Sort-Object | ForEach-Object { Write-Host $_":" $itemsList[$_] }
                 Write-Host -NoNewline -ForegroundColor green "Please select $focus`: "
                 $itemIndex = Read-Host
                 $item = $itemsList[[int]$itemIndex]
 
                 if ($itemIndex -and $item) {
                     Write-Verbose "< Selecting $focus`: `"$item`".."
-                    $narrowFocusItems | %{
+                    $narrowFocusItems | ForEach-Object {
                         if ($_.innerTEXT) {
                             if ($_.innerTEXT.Trim() -eq $item) {
                                 $_.click()
@@ -425,7 +425,7 @@ namespace InsData {
         else {
             $searchRes = $ie.Document.getElementById('searchres')
         }
-        $searchRes.getElementsByClassName('vmdoc') | %{
+        $searchRes.getElementsByClassName('vmdoc') | ForEach-Object {
             $doctitleClass = $_.getElementsByClassName('doctitle') | Select-Object -First 1
             $doctitleClassATag = $doctitleClass.getElementsByTagName('A') | Select-Object -First 1
             $synopsisTag = $_.getElementsByTagName('synopsis') | Select-Object -First 1
@@ -438,7 +438,7 @@ namespace InsData {
             $metadata = $_.getElementsByClassName('metadata') | Select-Object -First 1
             $Rating = 0
             if ($metadata.innerText -like "*Rating:*") {
-                $row.Rating = $metadata.getElementsByTagName('img') | %{
+                $row.Rating = $metadata.getElementsByTagName('img') | ForEach-Object {
                     if ($_.src -like '*icon_rating_star.gif') {
                         $Rating++
                     }
@@ -478,7 +478,7 @@ Function Get-LinkItems {
     }
 
     Process {
-        $Element.getElementsByTagName('A') | %{
+        $Element.getElementsByTagName('A') | ForEach-Object {
             $linkItem = "" | Select-Object "Title", "URL"
             $linkItem.Title = $_.innerText
             if ($_.href -like "javascript:openConsole*") {
@@ -602,7 +602,7 @@ namespace InsData {
         $row.RunAt = Get-Date
 
         # Title
-        $title = $spans | Where-Object { $_.getAttribute('itemprop') -eq 'name' } | Select-Object -First 1 | %{ $_.parentNode.innerText.Trim() }
+        $title = $spans | Where-Object { $_.getAttribute('itemprop') -eq 'name' } | Select-Object -First 1 | ForEach-Object { $_.parentNode.innerText.Trim() }
         $row | Add-Member -MemberType NoteProperty -Name "Title" -Value $title
 
         # Symptoms, Purpose, Cause, Details, Resolution, Solution, Impact/Risks, Update History, Additional Information, Tags
@@ -714,11 +714,11 @@ namespace InsData {
 
         # Rating Value
         $row | Add-Member -MemberType NoteProperty -Name "Rating Value" -Value $null
-        $row."Rating Value" = $metas | Where-Object { $_.getAttribute('itemprop') -eq 'ratingValue' } | Select-Object -First 1 | %{ $_.content }
+        $row."Rating Value" = $metas | Where-Object { $_.getAttribute('itemprop') -eq 'ratingValue' } | Select-Object -First 1 | ForEach-Object { $_.content }
 
         # Rating Count
         $row | Add-Member -MemberType NoteProperty -Name "Rating Count" -Value $null
-        $row."Rating Count" = $spans | Where-Object { $_.getAttribute('itemprop') -eq 'ratingCount' } | Select-Object -First 1 | %{ $_.innerText.Trim() }
+        $row."Rating Count" = $spans | Where-Object { $_.getAttribute('itemprop') -eq 'ratingCount' } | Select-Object -First 1 | ForEach-Object { $_.innerText.Trim() }
 
         # RSS URL
         $row | Add-Member -MemberType NoteProperty -Name "RSS URL" -Value $null
