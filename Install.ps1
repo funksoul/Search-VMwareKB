@@ -38,7 +38,12 @@ if (-not (Test-Path $Dest)) {
 
     Write-Host "Module installed to `"$Dest`" successfully."
 
-    # Import installed module
+    # (Re)Load the module
+    if (Get-Module $ModuleName) {
+        Write-Host "Removing current module `"$ModuleName`".."
+        Remove-Module $ModuleName
+    }
+
     Write-Host "Importing module `"$ModuleName`".."
     Import-Module $ModuleName
 }
